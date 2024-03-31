@@ -3,9 +3,10 @@ from collections import defaultdict
 import webbrowser
 
 # TODO: Filter to exclude Bronx locations
-# TODO: output the URLs in a list. Then open each of them in a web browser
+# TODO: Actually apply for the relevant listings
+# TODO: Output into some database. Then update that database for new listings 
 
-
+# Send a POST request to their API endpoint. Find all relevant listings that I qualify for. Scrape the relevant info  
 def scrape_ids():
     # web scraping set up
     url = "https://a806-housingconnectapi.nyc.gov/HPDPublicAPI/api/Lottery/SearchLotteries"
@@ -13,7 +14,8 @@ def scrape_ids():
         "Content-Type": "application/json",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
     }
-    # required POST fields, per Dev Tools. The "search lottery" header
+
+    # required POST fields, per Chrome Dev Tools. The "search lottery" header
     data = {
     "UnitTypes": [],
     "NearbyPlaces": [],
@@ -32,10 +34,12 @@ def scrape_ids():
     response = requests.post(url, headers=headers, json=data)
     response.raise_for_status()
 
+    # response contains 2 dictionaries (or is it lists? I forget). 1 is "sales", the other is "rentals"
     response = response.json()["rentals"]
     
-    # output is a nested dictionary. Keys are ID #s. Sub-dicts are the key-value pairs that we're interested in. Like listing ID, name, end date, etc.
-    num_listings = len(response) # confirmed that there are 39 listings
+    # output is a nested dictionary. Keys are Listing IDs. Sub-dicts are the key-value pairs that we're interested in. Like listing ID, name, end date, etc.
+    num_listings = len(response) # just an internal check that there are 39 listings
+    
     output_dict = defaultdict(dict)
     keys_to_extract = ["lotteryId", "lotteryName", "endIn", "minIncome", "maxIncome", "lotteryEndDate", "trains", "amenities"]
         
@@ -43,9 +47,11 @@ def scrape_ids():
     for listing in response:
         id = listing["lotteryId"]
 
+        # set up a dict here, in order to call later. Uses a For loop to iterate through the keys. Saves lines of code 
         update_dict = {key: listing[key] for key in keys_to_extract}
 
         output_dict[id].update(update_dict)
+        # manually update the url. Not provided by the POST call, but easy to determine
         output_dict[id].update({
             "url": f"https://housingconnect.nyc.gov/PublicWeb/details/{id}"
             })
@@ -60,24 +66,17 @@ def scrape_ids():
     
     print(len(output_dict.keys()))
 
-    #output_list = list(output_dict.keys())
-    #print(output_list)
-    #print(type(output_list))
-    #return output_list
-
-    # output the urls only
-
     return (output_dict)
 
 
-# open the URLs from the scraped IDs
+# opens the URLs from the scraped IDs. This is because the Housing website sucks. Can't open URLs in a new tab. Search resets when you click back, etc.
 def open_urls(output_dict):
     for key, values in output_dict.items():
         url = output_dict[key]["url"]
         webbrowser.open(url)
 
 
-# function to grab the important details from a listing, given the ID# 
+# NO LONGER USED. Because you can get this data through a POST call 
 def get_url(id):
     url = f"https://a806-housingconnectapi.nyc.gov/HPDPublicAPI/api/Lottery/GetLotteryAdvertisement?lotteryid={id}"
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"}
@@ -109,7 +108,7 @@ def get_url(id):
 
 
 
-
+# scrape the relevant listings based on criteria. Then open all those URLs 
 def main():
     output_dict = scrape_ids()
     open_urls(output_dict)
